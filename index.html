@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="apple-mobile-web-app-title" content="ShiftNet">
+  <title>ShiftNet - Badge Digitale & Scanner Busta Paga</title>
+
+  
+  <!-- PWA & Mobile Meta Tags -->
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OrariLavoro">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="icon" href="assets/icons/icon-512.png" sizes="512x512" type="image/png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+
+  <!-- CSS Principale -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Font Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Librerie Esterne (Chart.js, SheetJS, PDF.js, Tesseract.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="auth-required">
+  <div class="ambient-glow"></div>
+
+  <main id="authScreen" class="auth-screen">
+    <section class="auth-panel" aria-labelledby="authTitle">
+      <div class="auth-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <span>Shift<span style="color:var(--primary);">Net</span></span>
+      </div>
+      <h1 id="authTitle" data-i18n="welcome">Bentornato</h1>
+      <p class="auth-subtitle" data-i18n="subtitle">Accedi per ritrovare i tuoi turni su tutti i dispositivi.</p>
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" data-auth-mode="login" data-i18n="login">Accedi</button>
+        <button type="button" class="auth-tab" data-auth-mode="register" data-i18n="register">Registrati</button>
+      </div>
+      <form id="authForm" class="auth-form">
+        <div id="authNameGroup" class="form-group" hidden>
+          <label class="form-label" for="authName" data-i18n="name">Nome</label>
+          <input id="authName" name="name" class="form-control" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="authEmail" data-i18n="email">Email</label>
+          <input id="authEmail" name="email" type="email" class="form-control" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="authPassword" data-i18n="password">Password</label>
+          <input id="authPassword" name="password" type="password" class="form-control" autocomplete="current-password" minlength="8" required>
+        </div>
+        <button id="authSubmit" type="submit" class="btn btn-primary auth-submit" data-i18n="login">Accedi</button>
+      </form>
+      <p id="authFeedback" class="auth-feedback" role="status" aria-live="polite"></p>
+      <p id="authConfigNotice" class="auth-config-notice" data-i18n="notConfigured" hidden></p>
+      <button id="continueOfflineBtn" type="button" class="btn btn-outline auth-offline" data-i18n="continueOffline">Continua senza account</button>
+    </section>
+  </main>
+
+  <!-- Header Applicazione -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <span>Shift<span style="color:var(--primary);">Net</span></span>
+      </div>
+      <div class="header-actions">
+        <label class="sr-only" for="appLanguage" data-i18n="language">Lingua</label>
+        <select id="appLanguage" class="form-control header-language-select" aria-label="Lingua">
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+          <option value="de">Deutsch</option>
+        </select>
+        <button id="accountBtn" class="theme-toggle-btn account-btn" type="button" data-i18n="signOut" title="Esci">Esci</button>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Cambia Tema Chiaro / Scuro">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          <span class="theme-btn-text">Tema</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Navigazione Principale (Bottom bar Mobile / Sidebar Desktop) -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-tab="badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Badge</span>
+      </button>
+      <button class="nav-item" data-tab="calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span>Calendario</span>
+      </button>
+      <button class="nav-item" data-tab="finance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <span>Stipendio</span>
+      </button>
+      <button class="nav-item" data-tab="payslip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Busta Paga</span>
+      </button>
+      <button class="nav-item" data-tab="reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        <span>Report</span>
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        <span>Impostazioni</span>
+      </button>
+    </nav>
+
+    <!-- Contenitore Viste Principali -->
+    <main class="main-content">
+      
+      <!-- ==========================================
+           1. VISTA BADGE DIGITALE (TIMBRATRICE)
+           ========================================== -->
+      <section id="view-badge" class="view-section active">
+        <div class="card badge-hero">
+          <div id="currentTimeDisplay" class="current-time-display">00:00:00</div>
+          <div id="currentDateDisplay" class="current-date-display">Caricamento data...</div>
+
+          <!-- Pulsante Circolare Timbratrice -->
+          <div id="punchContainer" class="punch-container">
+            <div class="pulse-ring"></div>
+            <button id="punchBtn" class="punch-btn">
+              <div id="punchIcon">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <span id="punchActionLabel" class="punch-action-label">CHECK-IN</span>
+              <span id="punchSubLabel" class="punch-sub-label">Tocca per iniziare il turno</span>
+            </button>
+          </div>
+
+          <!-- Controlli Pausa & Azioni -->
+          <div class="session-controls">
+            <button id="pauseBtn" class="btn-secondary-action" style="display:none;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              Pausa
+            </button>
+            <button id="locationBtn" class="btn-secondary-action" title="Salva posizione GPS">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              <span id="locationStatus">Posizione GPS</span>
+            </button>
+          </div>
+
+          <!-- Statistiche Sessione Corrente -->
+          <div class="live-session-stats">
+            <div class="stat-box">
+              <div class="stat-label">Ore Lavorate</div>
+              <div id="liveWorkedTime" class="stat-value">00:00:00</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Tempo Pausa</div>
+              <div id="livePauseTime" class="stat-value">00:00</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Guadagno Stim.</div>
+              <div id="liveEarnings" class="stat-value highlight">€ 0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selettore Tipologia Turno Rapido & Note -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              Tipologia Turno & Annotazioni
+            </h3>
+          </div>
+          <div class="shift-type-selector">
+            <button class="shift-chip selected" data-type="ordinario">💼 Ordinario</button>
+            <button class="shift-chip" data-type="straordinario">⚡ Straordinario (+15%)</button>
+            <button class="shift-chip" data-type="notturno">🌙 Notturno (+20%)</button>
+            <button class="shift-chip" data-type="festivo">🎉 Festivo (+50%)</button>
+            <button class="shift-chip" data-type="trasferta">🚗 Trasferta</button>
+            <button class="shift-chip" data-type="smart">💻 Smart Working</button>
+          </div>
+          <div style="margin-top: 14px;">
+            <input type="text" id="quickNotesInput" class="form-control" placeholder="Note per questo turno (es. Commessa, Cantiere, Progetto)...">
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           2. VISTA CALENDARIO & STORICO
+           ========================================== -->
+      <section id="view-calendar" class="view-section">
+        <!-- Barra di Navigazione Mese -->
+        <div class="card">
+          <div class="calendar-header-nav">
+            <button id="prevMonthBtn" class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <h2 id="calendarMonthTitle" class="calendar-month-title">Mese Corrente</h2>
+              <button id="todayBtn" class="btn btn-outline" style="padding:4px 10px; font-size:0.75rem;">Oggi</button>
+            </div>
+            <button id="nextMonthBtn" class="btn-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+
+          <!-- Griglia Calendario -->
+          <div id="calendarGrid" class="calendar-grid">
+            <!-- Giorni generati dinamicamente via JS -->
+          </div>
+
+          <!-- Indicatori Rapidi Mese -->
+          <div class="live-session-stats" style="margin-top:20px;">
+            <div class="stat-box">
+              <div class="stat-label">Ore Lavorate</div>
+              <div id="monthStatTotalHours" class="stat-value">0h</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Straordinari</div>
+              <div id="monthStatOvertime" class="stat-value" style="color:var(--warning);">0h</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Ferie & Assenze</div>
+              <div id="monthStatLeaves" class="stat-value" style="color:#c084fc;">0h</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Giorni Totali</div>
+              <div id="monthStatDays" class="stat-value">0 gg</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timeline / Elenco Turni -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              Storico Dettagliato Mese
+            </h3>
+            <select id="timelineFilterSelect" class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.82rem;">
+              <option value="all">Tutti gli eventi</option>
+              <option value="work">Solo Turni di Lavoro</option>
+              <option value="overtime">Solo Straordinari</option>
+              <option value="leaves">Solo Ferie & Malattie</option>
+            </select>
+          </div>
+          <div id="timelineList" class="timeline-list">
+            <!-- Timeline generata dinamicamente da JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           3. VISTA FINANZE & CALCOLATORE LORDO/NETTO
+           ========================================== -->
+      <section id="view-finance" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Riepilogo Stipendio & Imposte Italia
+            </h3>
+            <select id="financeMonthSelect" class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.85rem;">
+              <!-- Mesi generati da JS -->
+            </select>
+          </div>
+
+          <div class="finance-grid">
+            <!-- Card Stipendio Netto Stimato -->
+            <div class="card salary-summary-card">
+              <div class="stat-label">STIPENDIO NETTO STIMATO NEL MESE</div>
+              <div id="financeEstimatedNet" class="salary-hero-amount">€ 0.00</div>
+              <div class="salary-sub-note">Include straordinari, maggiorazioni e buoni pasto esenti</div>
+
+              <div class="tax-breakdown-list">
+                <div class="tax-row">
+                  <span>Totale Competenze Lorde:</span>
+                  <span id="financeTotalGross">€ 0.00</span>
+                </div>
+                <div class="tax-row" style="color:#f87171;">
+                  <span>Contributi INPS Dipendente:</span>
+                  <span id="financeInpsDeduction">- € 0.00</span>
+                </div>
+                <div class="tax-row">
+                  <span>Imponibile Fiscale IRPEF:</span>
+                  <span id="financeTaxableBase">€ 0.00</span>
+                </div>
+                <div class="tax-row" style="color:#fb923c;">
+                  <span>Trattenuta IRPEF Stimata:</span>
+                  <span id="financeIrpefDeduction">- € 0.00</span>
+                </div>
+                <div class="tax-row" style="color:#34d399;">
+                  <span>Buoni Pasto & Indennità:</span>
+                  <span id="financeAllowances">+ € 0.00</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Dettaglio Ore & Medie -->
+            <div class="card">
+              <div class="card-header">
+                <h4 style="font-size:0.95rem; font-weight:600;">Statistiche Retributive</h4>
+              </div>
+              <div class="live-session-stats">
+                <div class="stat-box">
+                  <div class="stat-label">Ore Lavorate</div>
+                  <div id="financeWorkedHours" class="stat-value">0h</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Media Oraria Netta</div>
+                  <div id="financeHourlyAverage" class="stat-value highlight">€ 0.00 /h</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Straordinari</div>
+                  <div id="financeOvertimeHours" class="stat-value" style="color:var(--warning);">0h</div>
+                </div>
+              </div>
+
+              <!-- Grafico Doughnut Ripartizione Ore -->
+              <div style="height: 200px; margin-top: 16px; position: relative;">
+                <canvas id="hoursChartCanvas"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grafico Barra Composizione Stipendio -->
+          <div class="card" style="margin-top: 16px;">
+            <div class="card-header">
+              <h4 style="font-size:0.95rem; font-weight:600;">Composizione Finanziaria (Lordo, Trattenute e Netto)</h4>
+            </div>
+            <div style="height: 220px; position: relative;">
+              <canvas id="earningsChartCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           4. VISTA SCANNER BUSTA PAGA & AUDIT
+           ========================================== -->
+      <section id="view-payslip" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              Scanner OCR Busta Paga & Controllo Discrepanze
+            </h3>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 18px;">
+            Carica la scansione PDF o una foto della tua busta paga reale. L'algoritmo OCR estrarrà le ore pagate dal datore di lavoro e le confronterà con le ore effettivamente registrate nell'app.
+          </p>
+
+          <!-- Dropzone Caricamento File -->
+          <div id="payslipDropzone" class="dropzone">
+            <div class="dropzone-icon">
+              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <h4 style="font-weight: 700; margin-bottom: 6px;">Trascina qui il file PDF o l'immagine della busta paga</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">oppure tocca per selezionare dal dispositivo o scattare una foto</p>
+            <input type="file" id="payslipFileInput" accept="application/pdf,image/*" style="display:none;">
+          </div>
+
+          <!-- Barra di Progresso OCR -->
+          <div id="ocrProgressContainer" style="display:none; margin-top:16px;">
+            <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px;">
+              <span id="ocrStatusText">Elaborazione documento in corso...</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div id="ocrProgressBar" class="progress-bar-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sezione Risultati & Riconciliazione (Audit) -->
+        <div id="reconciliationSection" class="card reconciliation-card" style="display:none;">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+              Risultato Verifica & Riconciliazione
+            </h3>
+            <div id="auditStatusContainer"></div>
+          </div>
+
+          <!-- Modulo di Revisione Dati Rilevati -->
+          <div style="background:var(--bg-secondary); padding:16px; border-radius:var(--radius-md); margin-bottom:20px; border:1px solid var(--border-color);">
+            <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:12px; color:var(--primary);">Dati Rilevati dal Cedolino (Modificabili)</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Mese di Competenza</label>
+                <input type="month" id="psMonthInput" class="form-control">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ore Ordinarie Pagate</label>
+                <input type="number" step="0.5" id="psOrdinaryHours" class="form-control">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Ore Straordinario Pagate</label>
+                <input type="number" step="0.5" id="psOvertimeHours" class="form-control">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ferie Godute (Ore)</label>
+                <input type="number" step="0.5" id="psVacationHours" class="form-control">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Permessi / ROL Goduti</label>
+                <input type="number" step="0.5" id="psPermitHours" class="form-control">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Netto a Pagare Cedolino (€)</label>
+                <input type="number" step="0.01" id="psNetSalary" class="form-control">
+              </div>
+            </div>
+            <input type="hidden" id="psSickHours" value="0">
+            <button id="btnConfirmReconcile" class="btn btn-primary" style="width:100%;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Ricalcola Confronto con Registro Orari
+            </button>
+          </div>
+
+          <!-- Tabella di Confronto e Discrepanze -->
+          <div style="overflow-x:auto;">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>Voce di Controllo</th>
+                  <th>Registrate nell'App</th>
+                  <th>Pagate in Busta Paga</th>
+                  <th>Discrepanza (Delta)</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonTableBody">
+                <!-- Righe generate dinamicamente -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Azioni di Risoluzione -->
+          <div style="margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap;">
+            <button id="btnExportDisputeNote" class="btn btn-outline">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+              Copia Lettera di Chiarimento per HR
+            </button>
+          </div>
+        </div>
+
+        <!-- Archivio Buste Paga Caricate -->
+        <div class="card" style="margin-top:20px;">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Archivio Cedolini Verificati
+            </h3>
+          </div>
+          <div id="payslipArchiveList">
+            <!-- Lista cedolini generata da JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           5. VISTA REPORT & ESPORTAZIONE
+           ========================================== -->
+      <section id="view-reports" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Esportazione Registro Presenze & Report
+            </h3>
+          </div>
+
+          <div class="form-group" style="max-width:320px;">
+            <label class="form-label">Seleziona il Mese da Esportare</label>
+            <select id="exportMonthSelect" class="form-control">
+              <!-- Mesi generati da JS -->
+            </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-top:20px;">
+            <div class="card" style="background:var(--bg-secondary); margin-bottom:0;">
+              <h4 style="font-weight:700; margin-bottom:6px;">📊 Foglio Excel (.xlsx)</h4>
+              <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:14px;">Tabella completa pronta per Microsoft Excel o Google Fogli con formule e riepiloghi.</p>
+              <button id="btnExportExcel" class="btn btn-primary" style="width:100%;">Scarica Excel (.xlsx)</button>
+            </div>
+
+            <div class="card" style="background:var(--bg-secondary); margin-bottom:0;">
+              <h4 style="font-weight:700; margin-bottom:6px;">📄 Documento CSV</h4>
+              <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:14px;">Formato standard separato da punto e virgola conforme alle importazioni contabili.</p>
+              <button id="btnExportCsv" class="btn btn-outline" style="width:100%;">Scarica CSV</button>
+            </div>
+
+            <div class="card" style="background:var(--bg-secondary); margin-bottom:0;">
+              <h4 style="font-weight:700; margin-bottom:6px;">🖨️ Stampa / PDF Ufficiale</h4>
+              <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:14px;">Report impaginato con intestazione e spazi per le firme del dipendente e datore.</p>
+              <button id="btnPrintPdf" class="btn btn-success" style="width:100%;">Stampa / Esporta PDF</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backup & Ripristino Dati -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              Sicurezza & Backup Dati
+            </h3>
+          </div>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+            I dati sono salvati sul dispositivo. Con un account, turni e impostazioni vengono sincronizzati online e sono disponibili sugli altri dispositivi; puoi esportare un backup in qualsiasi momento.
+          </p>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button id="btnBackupJson" class="btn btn-outline">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Esporta Backup Completo (JSON)
+            </button>
+            <button id="btnRestoreJson" class="btn btn-outline">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              Ripristina Dati da Backup
+            </button>
+            <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+          </div>
+        </div>
+      </section>
+
+      <!-- ==========================================
+           6. VISTA IMPOSTAZIONI & CONTRATTO
+           ========================================== -->
+      <section id="view-settings" class="view-section">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Parametri Contrattuali & Fiscalità (Italia)
+            </h3>
+          </div>
+
+          <form id="settingsForm">
+            <h4 style="font-size:0.95rem; font-weight:700; margin:16px 0 10px; color:var(--primary);">Tariffa & Contratto (Lordo & Netto in Mano)</h4>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>Tariffa Oraria Lorda (€/ora)</span>
+                  <span class="badge-pill" style="background:rgba(37,99,235,0.15); color:#60a5fa; font-size:0.75rem;">Lordo Contrattuale</span>
+                </label>
+                <input type="number" step="0.05" id="cfgHourlyGross" class="form-control" placeholder="Es. 13.50" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span style="color:var(--success); font-weight:700;">Netto in Mano (€/ora)</span>
+                  <span class="badge-pill" style="background:var(--success-bg); color:var(--success); font-size:0.75rem;">💵 Netto in Tasca</span>
+                </label>
+                <input type="number" step="0.05" id="cfgHourlyNet" class="form-control" placeholder="Es. 9.50" style="border-color:var(--success); font-weight:700; color:var(--success);" required>
+              </div>
+            </div>
+
+            <div style="background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.3); border-left:4px solid var(--success); padding:12px 14px; border-radius:8px; font-size:0.85rem; color:var(--text-primary); margin-bottom:18px;">
+              💵 <strong>Campo "Netto in Mano (€/ora)":</strong> Inserisci direttamente quanto percepisci di netto all'ora (es. 9,50 € o 10,00 €/ora). L'app calcolerà automaticamente il corrispondente valore lordo e aggiornerà tutti i conteggi live del badge e dello stipendio mensile!
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tipo Contratto</label>
+                <select id="cfgContractType" class="form-control">
+                  <option value="variable">Turni Variabili / Flessibile</option>
+                  <option value="fulltime">Full-Time (40 ore)</option>
+                  <option value="parttime">Part-Time</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Monte Ore Settimanale</label>
+                <input type="number" id="cfgWeeklyHours" class="form-control" value="40">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Ore Standard Giornaliere</label>
+              <input type="text" id="cfgDailyHours" class="form-control" value="8:00" placeholder="Es. 6,40 o 6:40" inputmode="decimal">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pausa Giornaliera Predefinita (Minuti)</label>
+              <input type="number" id="cfgDefaultPause" class="form-control" value="0" min="0">
+            </div>
+
+            <h4 style="font-size:0.95rem; font-weight:700; margin:20px 0 10px; color:var(--primary);">Aliquote & Tassazione Italia</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Contributi INPS IVS Dipendente (%)</label>
+                <input type="number" step="0.01" id="cfgInpsRate" class="form-control" value="9.19">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Aliquota IRPEF Media Stimata (%)</label>
+                <input type="number" step="0.5" id="cfgEstimatedTaxRate" class="form-control" value="23.0">
+              </div>
+            </div>
+
+            <h4 style="font-size:0.95rem; font-weight:700; margin:20px 0 10px; color:var(--primary);">Maggiorazioni Turni & CCNL (%)</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Straordinario Diurno (%)</label>
+                <input type="number" id="cfgOvertimeDay" class="form-control" value="15">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Straordinario Domenicale (%)</label>
+                <input type="number" id="cfgOvertimeSunday" class="form-control" value="15">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Straordinario Notturno (%)</label>
+                <input type="number" id="cfgOvertimeNight" class="form-control" value="30">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Straordinario Festivo (%)</label>
+                <input type="number" id="cfgOvertimeHoliday" class="form-control" value="30">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Buono Pasto Giornaliero (€)</label>
+                <input type="number" step="0.5" id="cfgMealVoucher" class="form-control" value="7.00">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Indennità Giornaliera Trasferta (€)</label>
+              <input type="number" step="1" id="cfgTravelAllowance" class="form-control" value="15.00">
+            </div>
+
+            <h4 style="font-size:0.95rem; font-weight:700; margin:20px 0 10px; color:var(--primary);">Notifiche & Feedback</h4>
+            <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:20px;">
+              <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="cfgSound" style="width:18px; height:18px;">
+                <span>Feedback sonoro alla timbratura</span>
+              </label>
+              <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                <input type="checkbox" id="cfgVibration" style="width:18px; height:18px;">
+                <span>Vibrazione aptica su smartphone</span>
+              </label>
+              <div>
+                <button type="button" id="btnRequestNotif" class="btn btn-outline" style="font-size:0.85rem; padding:8px 14px;">
+                  🔔 Abilita Notifiche Promemoria di Sistema
+                </button>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-color); padding-top:16px;">
+              <button type="button" id="btnResetDemoData" class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-glow);">
+                Azzera & Ricarica Demo
+              </button>
+              <button type="submit" class="btn btn-primary">Salva Impostazioni</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==========================================
+       MODALI
+       ========================================== -->
+
+  <!-- Modale Dettaglio Giorno Calendario -->
+  <div id="dayModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="dayModalTitle" style="font-size:1.1rem; font-weight:700;">Dettaglio Giorno</h3>
+        <button id="closeDayModalBtn" class="btn-icon">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="dayModalEventsList" style="margin-bottom:20px;">
+          <!-- Eventi del giorno -->
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button id="btnOpenAddShift" class="btn btn-primary" style="flex:1;">+ Aggiungi Turno</button>
+          <button id="btnOpenAddAbsence" class="btn btn-outline" style="flex:1;">+ Ferie / Malattia / Giorno libero</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modale Aggiunta Turno Manuale -->
+  <div id="shiftModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:1.1rem; font-weight:700;">Aggiungi / Modifica Turno</h3>
+        <button id="closeShiftModalBtn" class="btn-icon">&times;</button>
+      </div>
+      <form id="shiftModalForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Data del Turno</label>
+            <input type="date" id="manualShiftDate" class="form-control" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Orario Inizio</label>
+              <input type="time" id="manualShiftStartTime" class="form-control" value="08:00" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Orario Fine</label>
+              <input type="time" id="manualShiftEndTime" class="form-control" value="17:00" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Pausa (Minuti)</label>
+              <input type="number" id="manualShiftPause" class="form-control" value="0" min="0">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tipologia Turno</label>
+              <select id="manualShiftType" class="form-control">
+                <option value="ordinario">Ordinario</option>
+                <option value="straordinario">Straordinario</option>
+                <option value="notturno">Notturno</option>
+                <option value="festivo">Festivo</option>
+                <option value="trasferta">Trasferta</option>
+                <option value="smart">Smart Working</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Note / Commessa</label>
+            <input type="text" id="manualShiftNotes" class="form-control" placeholder="Es. Cantiere, cliente, straordinario autorizzato...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary" style="width:100%;">Salva Turno</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modale Aggiunta Assenza (Ferie, Malattia, Permesso) -->
+  <div id="absenceModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:1.1rem; font-weight:700;">Registra Assenza (Ferie / Malattia)</h3>
+        <button id="closeAbsenceModalBtn" class="btn-icon">&times;</button>
+      </div>
+      <form id="absenceModalForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Data</label>
+            <input type="date" id="absenceDate" class="form-control" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Tipologia Assenza</label>
+              <select id="absenceType" class="form-control">
+                <option value="ferie">🏖️ Ferie</option>
+                <option value="permesso">⏱️ Permesso / ROL</option>
+                <option value="malattia">🩺 Malattia</option>
+                <option value="giorno_libero">🏠 Giorno libero</option>
+                <option value="festivita">🎉 Festività Retribuita</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Ore da Scalare</label>
+              <input type="number" step="0.5" id="absenceHours" class="form-control" value="8" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Numero Protocollo Certificato INPS (opzionale)</label>
+            <input type="text" id="absenceProtocol" class="form-control" placeholder="Es. IT-2026-987654">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Note / Motivazione</label>
+            <input type="text" id="absenceNotes" class="form-control" placeholder="Es. Visita medica, ferie estive...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary" style="width:100%;">Registra Assenza</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Contenitore Notifiche Toast -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Script Applicazione -->
+  <script src="js/store.js"></script>
+  <script src="js/clock.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/payslip-scanner.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
