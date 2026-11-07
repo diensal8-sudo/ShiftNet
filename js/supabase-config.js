@@ -1,0 +1,2 @@
+window.SHIFTNET_SUPABASE_URL = '';
+window.SHIFTNET_SUPABASE_ANON_KEY = '';
